@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System.Collections.Generic;
@@ -59,6 +59,7 @@ namespace movimiento
 
             obstaculos.Clear();
 
+            //muro
             int anchoObstaculo = 60;  
             int altoObstaculo = 20;   
 
@@ -140,6 +141,8 @@ namespace movimiento
                 puntaje++;
             }
 
+
+            //area de personajes
             Rectangle areaPersonaje = new Rectangle(
                 (int)posicion.X,
                 (int)posicion.Y,
@@ -154,19 +157,15 @@ namespace movimiento
                 alien.Height
             );
 
-            //colosion del alien
             if (alienActivo && areaPersonaje.Intersects(areaAlien))
             {
                 vidas--; 
                 historialChoques.Push(areaAlien);
 
-                velocidadAlien.X *= -1;
-                velocidadAlien.Y *= -1;
-
                 alienActivo = false;
             }
 
-
+            //colosion del alien
             if (alienActivo)
             {
                 for (int i = 0; i < obstaculos.Count; i++)
