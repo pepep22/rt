@@ -5,6 +5,18 @@ using System.Collections.Generic;
 
 namespace movimiento
 {
+    public struct Disparo
+    {
+        public Rectangle Rectangulo;
+        public int Velocidad;
+
+        public Disparo(int x, int y)
+        {
+            Rectangulo = new Rectangle(x, y, 6, 16);
+            Velocidad = 12;
+        }
+    }
+
     public class Game1 : Game
     {
         private Texture2D personaje;
@@ -24,6 +36,10 @@ namespace movimiento
         private Vector2 velocidadAlien = new Vector2(150f, 120f);
         private bool alienActivo = true;
 
+        private List<Disparo> listaDisparos;
+        private KeyboardState teclaActual;
+        private KeyboardState teclaAnterior;
+
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
 
@@ -40,6 +56,7 @@ namespace movimiento
 
         protected override void Initialize()
         {
+            listaDisparos = new List<Disparo>();
             base.Initialize();
         }
 
@@ -60,15 +77,12 @@ namespace movimiento
             obstaculos.Clear();
 
             //muro
-            int anchoObstaculo = 60;  
-            int altoObstaculo = 20;   
-
+            int anchoObstaculo = 60;
+            int altoObstaculo = 20;
             int espacio = 120;
-
 
             int distanciaDesdeElFondo = 150;
             int posicionYBarrera = GraphicsDevice.Viewport.Height - distanciaDesdeElFondo;
-
 
             for (int posicionX = 0; posicionX < GraphicsDevice.Viewport.Width; posicionX += (anchoObstaculo + espacio))
             {
@@ -81,7 +95,7 @@ namespace movimiento
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            KeyboardState teclado = Keyboard.GetState();
+            teclaActual = Keyboard.GetState();
             float tiempo = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // movimiento del alien
@@ -89,7 +103,6 @@ namespace movimiento
             {
                 posicionAlien.X += velocidadAlien.X * tiempo;
                 posicionAlien.Y += velocidadAlien.Y * tiempo;
-
 
                 if (posicionAlien.X > GraphicsDevice.Viewport.Width - alien.Width)
                 {
@@ -101,7 +114,6 @@ namespace movimiento
                     posicionAlien.X = 0;
                     velocidadAlien.X *= -1;
                 }
-
 
                 if (posicionAlien.Y > GraphicsDevice.Viewport.Height - alien.Height)
                 {
@@ -116,19 +128,19 @@ namespace movimiento
             }
 
             // movimiento de la nave
-            if (teclado.IsKeyDown(Keys.Right) || teclado.IsKeyDown(Keys.D))
+            if (teclaActual.IsKeyDown(Keys.Right) || teclaActual.IsKeyDown(Keys.D))
             {
                 posicion.X += velocidad * tiempo;
             }
-            if (teclado.IsKeyDown(Keys.Left) || teclado.IsKeyDown(Keys.A))
+            if (teclaActual.IsKeyDown(Keys.Left) || teclaActual.IsKeyDown(Keys.A))
             {
                 posicion.X -= velocidad * tiempo;
             }
-            if (teclado.IsKeyDown(Keys.Up) || teclado.IsKeyDown(Keys.W))
+            if (teclaActual.IsKeyDown(Keys.Up) || teclaActual.IsKeyDown(Keys.W))
             {
                 posicion.Y -= velocidad * tiempo;
             }
-            if (teclado.IsKeyDown(Keys.Down) || teclado.IsKeyDown(Keys.S))
+            if (teclaActual.IsKeyDown(Keys.Down) || teclaActual.IsKeyDown(Keys.S))
             {
                 posicion.Y += velocidad * tiempo;
             }
@@ -136,11 +148,25 @@ namespace movimiento
             posicion.X = MathHelper.Clamp(posicion.X, 0, GraphicsDevice.Viewport.Width - personaje.Width);
             posicion.Y = MathHelper.Clamp(posicion.Y, 0, GraphicsDevice.Viewport.Height - personaje.Height);
 
-            if (teclado.IsKeyDown(Keys.Space))
+            if (teclaActual.IsKeyDown(Keys.Space) && teclaAnterior.IsKeyUp(Keys.Space))
             {
-                puntaje++;
+                int xBalas = (int)posicion.X + (personaje.Width / 2) - 3;
+                int yBalas = (int)posicion.Y;
+                listaDisparos.Add(new Disparo(xBalas, yBalas));
             }
 
+            for (int i = 0; i < listaDisparos.Count; i++)
+            {
+                Disparo d = listaDisparos[i];
+                d.Rectangulo.Y -= d.Velocidad;
+                listaDisparos[i] = d;
+
+                if (d.Rectangulo.Y + d.Rectangulo.Height < 0)
+                {
+                    listaDisparos.RemoveAt(i);
+                    i--;
+                }
+            }
 
             //area de personajes
             Rectangle areaPersonaje = new Rectangle(
@@ -157,12 +183,49 @@ namespace movimiento
                 alien.Height
             );
 
+
+            //colision de balas
             if (alienActivo && areaPersonaje.Intersects(areaAlien))
             {
-                vidas--; 
+                vidas--;
                 historialChoques.Push(areaAlien);
-
                 alienActivo = false;
+            }
+            for (int i = 0; i < listaDisparos.Count; i++)
+            {
+                Disparo d = listaDisparos[i];
+                d.Rectangulo.Y -= d.Velocidad;
+                listaDisparos[i] = d;
+
+                bool balaEliminada = false;
+
+                if (alienActivo && d.Rectangulo.Intersects(areaAlien))
+                {
+                    alienActivo = false;
+                    puntaje += 10;
+                    listaDisparos.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
+                for (int j = 0; j < obstaculos.Count; j++)
+                {
+                    if (obstaculos[j].Activo && d.Rectangulo.Intersects(obstaculos[j].Area))
+                    {
+                        listaDisparos.RemoveAt(i);
+                        i--;
+                        balaEliminada = true;
+                        break;
+                    }
+                }
+
+                if (balaEliminada) continue;
+
+                if (d.Rectangulo.Y + d.Rectangulo.Height < 0)
+                {
+                    listaDisparos.RemoveAt(i);
+                    i--;
+                }
             }
 
             //colosion del alien
@@ -188,7 +251,6 @@ namespace movimiento
                             else
                                 posicionAlien.Y = obstaculo.Area.Bottom;
                         }
-
                         else
                         {
                             velocidadAlien.X *= -1;
@@ -200,16 +262,17 @@ namespace movimiento
                         }
 
                         historialChoques.Push(obstaculo.Area);
-
                         obstaculo.Activo = false;
                         break;
                     }
                 }
             }
 
+            // Guardar el estado del teclado para el siguiente ciclo
+            teclaAnterior = teclaActual;
+
             base.Update(gameTime);
         }
-
 
         protected override void Draw(GameTime gameTime)
         {
@@ -231,6 +294,12 @@ namespace movimiento
                     posicionAlien,
                     Color.White
                 );
+            }
+
+            // Dibujar los disparos
+            foreach (Disparo disparo in listaDisparos)
+            {
+                _spriteBatch.Draw(pixel, disparo.Rectangulo, Color.Cyan);
             }
 
             // Dibujar vidas
@@ -264,13 +333,12 @@ namespace movimiento
 
             // Mostrar registros de la pila
             _spriteBatch.DrawString(
-                fuente,
-                "Choques registrados: " + historialChoques.Cantidad,
-                new Vector2(10, 40),
-                Color.Yellow
+            fuente,
+            "Choques registrados: " + historialChoques.Cantidad,
+            new Vector2(10, 40),
+            Color.Yellow
             );
             _spriteBatch.End();
-
             base.Draw(gameTime);
         }
     }
